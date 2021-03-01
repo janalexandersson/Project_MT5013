@@ -1,0 +1,69 @@
+---
+title: "test"
+author: "Jan Alexandersson"
+date: "February 10, 2018"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r include = FALSE,suppressPackageStartupMessages, message=FALSE}
+library(tidyverse)
+library(purrr)
+library(stringr)
+library(knitr)
+library(rebus)
+library(lubridate)
+library(rvest)
+library(jsonlite)
+library(httr)
+library(listviewer)
+library(readxl)
+library(RCurl)
+```
+
+```{r include = FALSE,suppressPackageStartupMessages, message=FALSE}
+
+
+full_url <- oauth_callback()
+full_url <- gsub("(.*localhost:[0-9]{1,5}/).*", x=full_url, replacement="\\1")
+print(full_url)
+
+
+app_name <- "StatistiskDatabehandling"
+client_id <- "21772825584e4eaabaa99323a0c69d92"
+client_secret <- "bd5fd4eedd594a24a216bd42b4ae8eb1"
+scope <- "basic" # no need to change this
+
+
+instagram <- oauth_endpoint(
+  authorize = "https://api.instagram.com/oauth/authorize",
+  access = "https://api.instagram.com/oauth/access_token")
+myapp <- oauth_app(app_name, client_id, client_secret)
+
+ig_oauth <- oauth2.0_token(instagram, myapp,scope="public_content",  type = "application/x-www-form-urlencoded",cache=FALSE)
+
+tmp <- strsplit(toString(names(ig_oauth$credentials)), '"')
+token <- tmp[[1]][4]
+
+#################################################
+
+username <- "fjarilflickans" 
+
+user_info <- fromJSON(getURL(paste('https://api.instagram.com/v1/users/search?q=',username,'&access_token=',token,sep="")))
+received_profile <- user_info$data[[1]]
+
+
+
+hej <- getURL(paste('https://api.instagram.com/v1/users/search?q=',username,'&access_token=',token,sep=""))
+content(hej)
+```
+
+
+
+
+
+
+
+
+

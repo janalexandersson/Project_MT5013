@@ -1,0 +1,172 @@
+---
+title: "Projekt Statistisk Databehandling"
+author: "Jan Alexandersson"
+date: "February 9, 2018"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r include = FALSE,suppressPackageStartupMessages, message=FALSE}
+library(tidyverse)
+library(purrr)
+library(stringr)
+library(knitr)
+library(rebus)
+library(lubridate)
+library(rvest)
+library(jsonlite)
+library(httr)
+library(listviewer)
+library(readxl)
+```
+
+
+```{r }
+
+# article_key <- "&api-key=RGAPI-22e3d246-f081-45a1-929d-02b1afcd9e71"
+#url <- "/lol/match/v3/matches/{550246}"
+#req <- fromJSON(url, article_key)
+
+
+url <- "https://euw1.api.riotgames.com/lol/match/v3/matches/3442010144?api_key=RGAPI-22e3d246-f081-45a1-929d-02b1afcd9e71"
+req <- GET(url)
+test <-  content(req) 
+glimpse(content(req))
+
+for(i in 1:10){
+  if(test$participantIdentities[[i]]$player$summonerName == "Smoot"){
+    id = i
+  }
+}
+
+test$participants[[id]]
+
+```
+
+
+```{r }
+
+patch_8.1 <- read_excel("2018-spring-match-data-OraclesElixir-2018-01-29-1.xlsx")
+patch_7.18 <- read_excel("2017-worlds-match-data-OraclesElixir-2017-11-05.xlsx")
+
+
+
+
+
+head(patch_7.18)
+
+
+filteredPatch_8.1 <- patch_8.1 %>% 
+  filter(league %in% c( "NALCS", "LCK", "EULCS")) %>% 
+  select(position, team, gamelength, k, d,a, teamkills, teamdeaths, doubles, triples, quadras,
+        pentas, fb, fbassist, fbvictim, fbtime, kpm,ckpm, fd, fdtime, teamdragkills, herald, ft,
+        fttime, fbaron, dmgtochamps,dmgtochampsperminute,dmgshare,earnedgoldshare,wards,wpm,
+        wardkills,wcpm,earnedgpm,monsterkillsownjungle,monsterkillsenemyjungle,cspm,
+        goldat10,goldat15,xpat10, gameid) %>% 
+   select(-herald,-doubles, -triples, -quadras, -pentas,
+                             -dmgshare,-earnedgoldshare) %>% 
+  group_by(team, position) %>%
+  filter(position == "Team")  
+  #select(-position) %>% 
+  #summarize_all(funs(mean)) 
+
+
+filteredPatch_8.1
+
+filteredPatch_8.1$fbaron[is.na(filteredPatch_8.1$fbaron)] <- 0
+#filteredPatch_8.1[,3:(ncol(filteredPatch_8.1)-2)]
+
+M <- matrix(data.matrix(filteredPatch_8.1[,3:(ncol(filteredPatch_8.1)-2)]), ncol = ncol(filteredPatch_8.1)-2, nrow = nrow(filteredPatch_8.1))
+
+M
+#vektor med medelvärden
+Mm <- colMeans(M)
+#vektor med sd
+Msd <- apply(M, 2, sd)
+
+#först tar jag bort medelvärdet från alla element i M genom att tillverka en matris av typen
+# a b c . . 
+# a b c . .
+# a b c . . 
+# . . .
+# . .     .
+#där a är medelvärdet för första kolonnen i M och b är medel för andra osv
+#sen gör jag på liknande sätt med standardavvikelsen men jag gör elementvis division
+M_standardiserad <- (M - matrix(rep(1,(ncol(filteredPatch_8.1)-2)*nrow(filteredPatch_8.1)), ncol= ncol(filteredPatch_8.1)-2, nrow = nrow(filteredPatch_8.1) ) %*% diag(Mm) ) / 
+            (matrix(rep(1,(ncol(filteredPatch_8.1)-2)*nrow(filteredPatch_8.1)), ncol= (ncol(filteredPatch_8.1)-2), nrow = nrow(filteredPatch_8.1)) %*% diag(Msd) )
+
+
+M_standardiserad
+
+namn <- colnames(filteredPatch_8.1)[3:32]
+hej <- as.data.frame(M_standardiserad) 
+colnames(hej) <- namn
+
+rownames(hej) <- paste(filteredPatch_8.1$team, filteredPatch_8.1$position)
+hej
+stars(hej)
+
+aplpack::faces(hej)
+
+d <- dist(as.matrix(hej))
+hc <- hclust(d)
+#plottar användningen av he och she
+plot(hc)
+
+
+filteredPatch_8.1$team
+
+stars(filteredPatch_8.1) %>% 
+
+  group_by(Team) %>% 
+  summarize(Position = c())
+
+
+
+library(GDAdata)
+head(Decathlon)
+prcomp(scores)
+scores <- select(Decathlon, starts_with("P"), -Polevault) %>% 
+    mutate_all(scale)
+plot(svd(scores)$u[,1:2])
+biplot(prcomp(scores))
+
+
+```
+
+
+```{r}
+
+median(which(!is.na(unique(patch_7.18$kpm))))
+median(which(!is.na(unique(patch_8.1$kpm))))
+
+mean(patch_7.18$kpm)
+mean(patch_8.1$kpm)
+
+median(which(!is.na(unique(patch_7.18$fbtime))))
+median(which(!is.na(unique(patch_8.1$fbtime))))
+
+patch_7.18
+
+unique(patch_7.18$gamelength)
+
+
+filteredPatch_8.1 %>% 
+ # filter(kpm != 0) %>% 
+  group_by(gameid) %>% 
+  summarise(tid = sum(cspm)/2, hej =sum(kpm)) %>% 
+  ggplot(aes(x=tid, y= hej)) +
+  geom_point()
+
+
+
+
+```
+
+
+
+
+
+
+

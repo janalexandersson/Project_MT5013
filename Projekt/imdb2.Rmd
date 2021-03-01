@@ -1,0 +1,354 @@
+---
+title: "Imdb"
+author: "Jan Alexandersson"
+date: "February 10, 2018"
+output: html_document
+---
+
+#MINNESANTECKNINGAR OCH FUNDERINGAR
+
+#jämför med rotten tomatoes most awarded https://editorial.rottentomatoes.com/article/awards-leaderboard-top-movies-of-2017/
+
+#högst betalde skådespelare https://www.forbes.com/sites/natalierobehmed/2017/08/22/full-list-the-worlds-highest-paid-actors-and-actresses-2017/#53c8ef5d3751
+
+#analysera genre
+
+#gör mer pipes
+
+#missing values i imdb_func
+
+#missing values imdb_score
+
+#consistent names and describing names
+
+#använd purrr för att mappa
+
+#stringsAsFactors=FALSE använd
+
+```{r include = FALSE,suppressPackageStartupMessages, message=FALSE}
+library(tidyverse)
+library(purrr)
+library(stringr)
+library(knitr)
+library(rebus)
+library(lubridate)
+library(rvest)
+library(jsonlite)
+library(httr)
+library(listviewer)
+library(readxl)
+library(RCurl)
+library(rvest)
+```
+
+```{r}
+
+#theurl <- "https://en.wikipedia.org/wiki/2017_UEFA_Champions_League_Final"
+
+
+#url <- 'http://www.imdb.com/search/title?count=100&release_date=2016,2016&title_type=feature'
+#url <- "http://www.imdb.com/search/title?year=2017&title_type=feature&"
+
+
+
+imdb_func <- function(url){
+  
+  webpage <- read_html(url)
+  
+  #popularity_rank
+  popularity_rank <- html_text(html_nodes(webpage,'.text-primary'))
+  #popularity_rank <- html_text(popularity_rank)
+  
+  #title
+  title <- html_text(html_nodes(webpage,'.lister-item-header a'))
+  #title <- html_text(title)
+  
+  #genre         
+  genre <-  html_text(html_nodes(webpage,'.genre'))
+  #genre <- html_text(genre)
+  
+  #imdb_score        
+  imdb_score <- html_text(html_nodes(webpage,'.ratings-imdb-rating strong'))
+  #imdb_score<- html_text(imdb_score)
+  
+  #gross       
+  gross <-  html_text(html_nodes(webpage,".ghost~ .text-muted+ span , .text-primary"))
+  #gross<- html_text(gross)
+  gross <- gsub(".*\\.$","x", gross)
+  
+  #runtime
+  runtime <- html_text(html_nodes(webpage,'.text-primary , .text-muted .runtime'))
+  #runtime <- html_text(runtime)
+  runtime <- gsub(".*\\.","x", runtime)
+  
+  #director
+  director <-html_text( html_nodes(webpage,'.text-muted+ p a:nth-child(1)'))
+  #director <- html_text(director)
+  
+  #actors
+  
+  actor <- html_text(html_nodes(webpage,'.text-muted~ .text-muted+ p , .ratings-bar~ .text-muted+ p'))
+  #actor <- html_text(actor)
+  actor <- gsub(".*Stars:","", actor)
+  actor <- gsub("\n","", actor)
+  actor <- gsub("  " ,"", actor)
+  actor <- strsplit(actor, ", ")
+  
+  nthActor <- function(actor, number){
+    actorList <- c()
+    for(i in 1:length(actor)){
+      actorList <-append(actorList, actor[[i]][number])
+    }
+    return(actorList)
+  } 
+  
+  actor1 <- nthActor(actor, 1)
+  actor2 <- nthActor(actor, 2)
+  actor3 <- nthActor(actor, 3)
+  actor4 <- nthActor(actor, 4)
+
+  #metascore
+  metascore <- html_text(html_nodes(webpage,'.unfavorable , .mixed , .favorable , .text-primary'))
+  #metascore <- html_text(metascore)
+  metascore <- gsub(".*\\.","x", metascore)
+  
+  v <- list(title, popularity_rank, genre, imdb_score, gross, runtime, director,metascore,
+            actor1, actor2, actor3, actor4)
+  
+  return(v)
+}
+
+```
+
+
+```{r}
+##########################################
+# temp = imdb_func("http://www.imdb.com/search/title?year=2017&title_type=feature&")
+# title <- temp[[1]]
+# popularity_rank <- temp[[2]]
+# genre <- temp[[3]]
+# imdb_score <- temp[[4]]
+# gross <- temp[[5]]
+# runtime <- temp[[6]]
+# director <- temp[[7]]
+# metascore <- temp[[8]]
+# actor1 <- temp[[9]]
+# actor2 <- temp[[10]]
+# actor3 <- temp[[11]]
+# actor4 <- temp[[12]]
+
+title <- c()
+popularity_rank <- c()
+genre <- c()
+imdb_score <- c()
+gross <- c()
+runtime <- c()
+director <- c()
+metascore <- c()
+actor1 <- c()
+actor2 <- c()
+actor3 <- c()
+actor4 <- c()
+###################################
+
+for(i in 1:6){  if(i == 1){
+    url = "http://www.imdb.com/search/title?year=2017&title_type=feature&"
+  }else{
+    url <- paste0("http://www.imdb.com/search/title?year=2017&title_type=feature&page=" , i)
+  }
+
+  temp2 = imdb_func(url)
+
+  title <- c(title,temp2[[1]])
+  popularity_rank <- c(popularity_rank, temp2[[2]])
+  genre <- c(genre, temp2[[3]])
+  imdb_score <- c(imdb_score, temp2[[4]])
+  gross <- c(gross,temp2[[5]])
+  runtime <- c(runtime, temp2[[6]] )
+  director <- c(director, temp2[[7]] )
+  metascore <- c(metascore, temp2[[8]] )
+  actor1 <- c(actor1, temp2[[9]] )
+  actor2 <- c(actor2, temp2[[10]])
+  actor3 <- c(actor3, temp2[[11]])
+  actor4 <- c(actor4, temp2[[12]])
+}
+
+###########################################
+missingValues <- function(attribute){
+  missingValuesInAttribute <- c()
+  for(i in 1:(length(attribute)-1)){
+    if( (attribute[i] == "x") & (attribute[i+1] == "x") ){
+      missingValuesInAttribute <- append(i+1, missingValuesInAttribute)
+    }
+  }
+  
+  for (i in missingValuesInAttribute){
+    
+    a<-attribute[1:(i-1)]
+    
+    b<-attribute[i:length(attribute)]
+    
+    attribute <-append(a,list("NA"))
+    
+    attribute<-append(attribute,b)
+    
+  }
+  
+  if(attribute[length(attribute)] == "x"){
+    attribute <-append(attribute, "NA")
+  }
+  
+  attribute <- attribute[! (attribute %in% "x") ]
+  return(attribute)
+}
+#######################################################
+
+
+gross <- missingValues(gross)
+gross2 <- c()
+for(i in 1:length(gross)){
+  gross2 <- c(gross2, gross[[i]])
+}
+gross <- gross2
+
+
+metascore <- missingValues(metascore)
+metascore2 <- c()
+for(i in 1:length(metascore)){
+  metascore2 <- c(metascore2, metascore[[i]])
+}
+metascore <- metascore2
+
+
+runtime <- missingValues(runtime)
+runtime2 <- c()
+for(i in 1:length(runtime)){
+  runtime2 <- c(runtime2, runtime[[i]])
+}
+runtime <- runtime2
+##########################################################
+
+
+#create the data frame
+imdb_df <- data.frame(popularity_rank, genre, imdb_score, gross, runtime, director,metascore,
+              actor1,actor2, actor3, actor4, stringsAsFactors=FALSE) 
+
+
+#everything was of the type factor before
+#mutating and cleaning the data frame
+imdb_df <- imdb_df %>%
+  mutate(popularity_rank = gsub("\\." , "" , popularity_rank)) %>%
+  mutate(popularity_rank = as.numeric(popularity_rank)) %>%
+  mutate(genre = gsub("\n" , "", genre)) %>%
+  mutate(genre = gsub(" " , "", genre)) %>%
+  mutate(imdb_score = as.numeric(imdb_score)) %>%
+  mutate(gross = gsub("\\$|M", "", gross)) %>%
+  mutate(gross = as.numeric(gross)) %>%
+  mutate(runtime = gsub(" min", "" , runtime)) %>%
+  mutate(runtime = as.numeric(runtime)) %>%
+  mutate(metascore = gsub(" ","", metascore)) %>%
+  mutate(metascore = as.numeric(metascore))
+rownames(imdb_df) <- title
+
+imdb_df
+
+```
+
+
+```{r}
+imdb_df %>% 
+  ggplot(aes(x = popularity_rank , y = imdb_score)) +
+  geom_point() +
+  geom_smooth(method="lm", se = FALSE) 
+  #scale_y_log10() +
+
+imdb_df %>% 
+  ggplot(aes(x = imdb_score , y = gross)) +
+  geom_point() +
+  geom_smooth(method="lm", se = FALSE) 
+  #scale_y_log10() 
+
+imdb_df %>% 
+  ggplot(aes(x = metascore , y = gross)) +
+  geom_point() +
+  geom_smooth(method="lm", se = FALSE) 
+  #scale_y_log10() 
+
+imdb_df %>% 
+  ggplot(aes(x = runtime , y = gross)) +
+  geom_point() +
+  geom_smooth(method="lm", se = FALSE) 
+  #scale_y_log10() +
+
+imdb_df %>% 
+  filter(!is.na(metascore) ) %>% 
+  ggplot(aes(x = imdb_score , y = metascore)) +
+  geom_point() +
+  geom_smooth(method="lm", se = FALSE) 
+  #scale_y_log10() +
+
+
+imdb_df %>% 
+  group_by(genre) %>% 
+  summarize(n=n()) %>% 
+  arrange(desc(n)) 
+
+
+
+#count occurances by actors
+actors <- as.vector(c(imdb_df$actor1, imdb_df$actor2, imdb_df$actor3, imdb_df$actor4))
+as.data.frame(table(actors)) %>% arrange(desc(Freq))
+
+imdb_df %>% 
+  select(gross, actor1, actor2,actor3,actor4) %>% 
+  group_by(gross, actor1, actor2 , actor3, actor4) %>% 
+  summarise(mean(gross))
+
+########################
+
+
+#heatmap 50 mest populära
+imdb_df %>% 
+    rownames_to_column("title") %>% 
+    filter(popularity_rank <=50) %>% 
+    mutate_if(is.numeric, scale) %>% 
+    select(-actor1,-actor2, -actor3,-director, -genre)  %>% 
+    #replace_na(gross = "0", metascore="0") %>% 
+    gather(key = key, value = value, popularity_rank:metascore) %>% 
+    ggplot(aes(x = key, y = title)) + geom_tile(aes(fill = value)) + scale_fill_gradient2() + xlab("")
+
+
+# mtcars %>% 
+#     rownames_to_column("model") %>% 
+#     mutate_if(is.numeric, scale) %>% 
+#     gather(key = key, value = value, mpg:carb)
+#     ggplot(aes(x = key, y = model)) + geom_tile(aes(fill = value)) + scale_fill_gradient2() + xlab("")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
